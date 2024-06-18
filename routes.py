@@ -13,12 +13,15 @@ def register_user(request: Request, user: UserRegistration = Body(...)):
     user = jsonable_encoder(user)
     users_collection = request.app.database["users"]
     
+    # Check if email is already registered
     if users_collection.find_one({"email": user["email"]}):
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Check if username is already registered
     if users_collection.find_one({"username": user["username"]}):
         raise HTTPException(status_code=400, detail="Username already registered")
     
+    # Hash the password before storing
     user["password"] = get_password_hash(user["password"])
     new_user = users_collection.insert_one(user)
     created_user = users_collection.find_one({"_id": new_user.inserted_id})
@@ -31,6 +34,7 @@ def login_user(request: Request, user: UserLogin = Body(...)):
     users_collection = request.app.database["users"]
     db_user = users_collection.find_one({"email": user.email})
     
+    # Validate credentials
     if not db_user or not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     
@@ -42,10 +46,12 @@ def link_id(request: Request, link: LinkID = Body(...)):
     users_collection = request.app.database["users"]
     linked_ids_collection = request.app.database["linked_ids"]
     
+    # Check if the user exists
     user = users_collection.find_one({"username": link.username})
     if not user:
         raise HTTPException(status_code=400, detail="User not Registered")
     
+    # Insert the linked ID
     linked_ids_collection.insert_one({"username": link.username, "linked_id": link.linked_id})
     return {"message": "ID linked successfully"}
 
@@ -55,10 +61,12 @@ def get_user_with_ids(username: str, request: Request):
     users_collection = request.app.database["users"]
     linked_ids_collection = request.app.database["linked_ids"]
     
+    # Check if the user exists
     user = users_collection.find_one({"username": username})
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
     
+    # Retrieve linked IDs
     linked_ids = linked_ids_collection.find({"username": username})
     linked_ids_list = [linked_id["linked_id"] for linked_id in linked_ids]
     
@@ -70,10 +78,12 @@ def delete_user(username: str, request: Request):
     users_collection = request.app.database["users"]
     linked_ids_collection = request.app.database["linked_ids"]
     
+    # Check if the user exists
     user = users_collection.find_one({"username": username})
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
     
+    # Delete user and associated linked IDs
     users_collection.delete_one({"username": username})
     linked_ids_collection.delete_many({"username": username})
     
